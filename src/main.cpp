@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <netdb.h>
 #include <string>
 #include <sys/socket.h>
@@ -19,16 +20,29 @@ public:
   token(int i) : type(2), iVal(i) {}
 };
 
+std::map<std::string, std::string> mp;
+
 std::string bulk_str(std::string str) {
   std::string resp;
   resp += '$' + std::to_string(str.size()) + "\r\n" + str + "\r\n";
   return resp;
 }
 
-std::string simple_string(std::string str){
+std::string simple_string(std::string str) {
   std::string resp;
   resp += '+' + str + "\r\n";
   return resp;
+}
+
+void ok(int client_fd){
+  send(client_fd, "+OK\r\n", 5, 0);
+  return;
+}
+
+void null(int client_fd){
+  std::string resp = bulk_str("-1");
+  send(client_fd, resp.c_str(), resp.size(), 0);
+  return;
 }
 
 int parse_tokens(int i, const std::string &buf, std::vector<token> &ans) {
@@ -79,9 +93,20 @@ void handle_client(int client_fd) {
     if (parsed_command[0].sVal[0] == "ECHO") {
       std::string resp = bulk_str(parsed_command[1].sVal[0]);
       send(client_fd, resp.c_str(), resp.size(), 0);
-    } else {
+    } else if(parsed_command[0].sVal[0] == "PING") {
       std::string resp = simple_string("PONG");
       send(client_fd, resp.c_str(), resp.size(), 0);
+    } else if(parsed_command[0].sVal[0] == "SET"){
+      mp[parsed_command[1].sVal[0]] = parsed_command[2].sVal[0];
+      ok(client_fd);
+    } else if(parsed_command[0].sVal[0] == "GET"){
+      if(mp.find(parsed_command[1].sVal[0]) == mp.end()){
+        null(client_fd);
+      } else {
+        std::string resp = bulk_str(mp[parsed_command[1].sVal[0]]);
+        send(client_fd, resp.c_str(), resp.size(), 0);
+      }
+
     }
   }
 
