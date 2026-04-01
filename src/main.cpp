@@ -47,6 +47,16 @@ std::string resp_int(int n) {
   return resp;
 }
 
+std::string resp_array(std::vector<std::string> v) {
+  std::string resp;
+  resp += '*' + std::to_string(v.size()) + "\r\n";
+  for (auto e : v) {
+    resp += bulk_str(e);
+  }
+  std::cout << resp;
+  return resp;
+}
+
 void ok(int client_fd) {
   send(client_fd, "+OK\r\n", 5, 0);
   return;
@@ -142,6 +152,19 @@ void handle_client(int client_fd) {
       }
       std::string resp =
           resp_int((std::get<1>(mp[parsed_command[1].sVal[0]])).size());
+      send(client_fd, resp.c_str(), resp.size(), 0);
+    } else if (parsed_command[0].sVal[0] == "LRANGE") {
+      int start_idx = std::stoi(parsed_command[2].sVal[0]);
+      int end_idx = std::stoi(parsed_command[3].sVal[0]);
+
+      std::vector<std::string> v = std::get<1>(mp[parsed_command[1].sVal[0]]);
+      std::vector<std::string> resp_v;
+      for (int i = start_idx; i < std::min((size_t)(end_idx + 1), v.size());
+           i++) {
+        resp_v.push_back(v[i]);
+      }
+
+      std::string resp = resp_array(resp_v);
       send(client_fd, resp.c_str(), resp.size(), 0);
     }
   }
