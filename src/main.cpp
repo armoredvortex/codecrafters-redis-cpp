@@ -153,6 +153,14 @@ void handle_client(int client_fd) {
       std::string resp =
           resp_int((std::get<1>(mp[parsed_command[1].sVal[0]])).size());
       send(client_fd, resp.c_str(), resp.size(), 0);
+    } else if (parsed_command[0].sVal[0] == "LPUSH") {
+      for (int i = 2; i < parsed_command.size(); i++) {
+        auto &v = std::get<1>(mp[parsed_command[1].sVal[0]]);
+        v.insert(v.begin(), parsed_command[i].sVal[0]);
+      }
+      std::string resp =
+          resp_int((std::get<1>(mp[parsed_command[1].sVal[0]])).size());
+      send(client_fd, resp.c_str(), resp.size(), 0);
     } else if (parsed_command[0].sVal[0] == "LRANGE") {
 
       std::vector<std::string> v = std::get<1>(mp[parsed_command[1].sVal[0]]);
