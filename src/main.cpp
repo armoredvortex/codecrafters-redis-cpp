@@ -201,8 +201,18 @@ void handle_client(int client_fd) {
       std::string resp;
       resp = resp_int(std::get<1>(mp[parsed_command[1].sVal[0]]).size());
       send(client_fd, resp.c_str(), resp.size(), 0);
+    } else if(parsed_command[0].sVal[0] == "LPOP"){
+      if(std::get<1>(mp[parsed_command[1].sVal[0]]).size() == 0){
+        null(client_fd);
+      } else {
+        auto &v = std::get<1>(mp[parsed_command[1].sVal[0]]);
+        std::string popped = v[0];
+        v.erase(v.begin());
+        std::string resp = bulk_str(popped);
+        send(client_fd, resp.c_str(), resp.size(), 0);
+      }
     }
-  }
+  } 
 
   close(client_fd);
 }
