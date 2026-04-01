@@ -1,6 +1,5 @@
 #include <arpa/inet.h>
 #include <chrono>
-#include <cstring>
 #include <iostream>
 #include <map>
 #include <netdb.h>
@@ -21,7 +20,7 @@ public:
   token(int i) : type(2), iVal(i) {}
 };
 
-std::map<std::string, std::tuple<std::string, int, long long>> mp;
+std::map<std::string, std::tuple<int, std::vector<std::string>, int, long long>> mp;
 
 long long now_ms() {
   return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -41,12 +40,18 @@ std::string simple_string(std::string str) {
   return resp;
 }
 
-void ok(int client_fd){
+std::string resp_int(int n){
+  std::string resp;
+  resp += ':' + std::to_string(n) + "\r\n";
+  return resp;
+}
+
+void ok(int client_fd) {
   send(client_fd, "+OK\r\n", 5, 0);
   return;
 }
 
-void null(int client_fd){
+void null(int client_fd) {
   std::string resp = "$-1\r\n";
   send(client_fd, resp.c_str(), resp.size(), 0);
   return;
@@ -100,10 +105,10 @@ void handle_client(int client_fd) {
     if (parsed_command[0].sVal[0] == "ECHO") {
       std::string resp = bulk_str(parsed_command[1].sVal[0]);
       send(client_fd, resp.c_str(), resp.size(), 0);
-    } else if(parsed_command[0].sVal[0] == "PING") {
+    } else if (parsed_command[0].sVal[0] == "PING") {
       std::string resp = simple_string("PONG");
       send(client_fd, resp.c_str(), resp.size(), 0);
-    } else if(parsed_command[0].sVal[0] == "SET"){
+    } else if (parsed_command[0].sVal[0] == "SET") {
       long long expiry = -1;
       if (parsed_command.size() == 5) {
         if (parsed_command[3].sVal[0] == "EX") {
@@ -112,23 +117,26 @@ void handle_client(int client_fd) {
           expiry = now_ms() + std::stoll(parsed_command[4].sVal[0]);
         }
       }
-      mp[parsed_command[1].sVal[0]] = {parsed_command[2].sVal[0], 0, expiry};
+      mp[parsed_command[1].sVal[0]] = {0, {parsed_command[2].sVal[0]}, 0, expiry};
       ok(client_fd);
-    } else if(parsed_command[0].sVal[0] == "GET"){
+    } else if (parsed_command[0].sVal[0] == "GET") {
       auto it = mp.find(parsed_command[1].sVal[0]);
-      if(it == mp.end()){
+      if (it == mp.end()) {
         null(client_fd);
       } else {
-        long long expiry = std::get<2>(it->second);
+        long long expiry = std::get<3>(it->second);
         if (expiry != -1 && now_ms() >= expiry) {
           mp.erase(it);
           null(client_fd);
         } else {
-          std::string resp = bulk_str(std::get<0>(it->second));
+          std::string resp = bulk_str(std::get<1>(it->second)[0]);
           send(client_fd, resp.c_str(), resp.size(), 0);
         }
       }
-
+    } else if(parsed_command[0].sVal[0] == "RPUSH"){
+      (std::get<1>(mp[parsed_command[1].sVal[0]])).push_back(parsed_command[2].sVal[0]);
+      std::string resp = resp_int((std::get<1>(mp[parsed_command[1].sVal[0]])).size());
+      send(client_fd, resp.c_str(), resp.size(), 0);
     }
   }
 
