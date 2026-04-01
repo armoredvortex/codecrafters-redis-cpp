@@ -2,10 +2,70 @@
 #include <cstring>
 #include <iostream>
 #include <netdb.h>
+#include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
+
+class token {
+public:
+  int type;
+  std::vector<std::string> sVal;
+  int iVal;
+
+  token(std::vector<std::string> s) : type(0), sVal(s) {}
+  token(int i) : type(2), iVal(i) {}
+};
+
+std::string bulk_str(std::string str) {
+  std::string resp;
+  resp += '$' + std::to_string(str.size()) + "\r\n" + str + "\r\n";
+  return resp;
+}
+
+std::string simple_string(std::string str){
+  std::string resp;
+  resp += '+' + str + "\r\n";
+  return resp;
+}
+
+int parse_tokens(int i, const std::string &buf, std::vector<token> &ans) {
+  char type = buf[i];
+  std::string numStr;
+  i++;
+  while (buf[i] != '\r') {
+    numStr += buf[i];
+    i++;
+  }
+  // std::cout << "--" << numStr << "--\n";
+  int num = std::stoi(numStr);
+  i += 2;
+  if (type == '*') {
+    for (int j = 0; j < num; j++) {
+      i = parse_tokens(i, buf, ans);
+    }
+  } else if (type == '$') {
+    std::string str;
+    for (int j = 0; j < num; j++) {
+      str += buf[i];
+      i++;
+    }
+    i += 2;
+    ans.push_back(token({str}));
+  }
+  return i;
+}
+
+std::vector<token> parse_command(char buffer[1024], ssize_t bytes_received) {
+  std::string buf(buffer, bytes_received);
+  std::vector<token> tokenList;
+  for (int i = 0; i < buf.size(); i++) {
+    i = parse_tokens(i, buf, tokenList);
+  }
+  return tokenList;
+}
 
 void handle_client(int client_fd) {
   while (true) {
@@ -14,11 +74,14 @@ void handle_client(int client_fd) {
     if (bytes_received <= 0) {
       break;
     }
+    std::vector<token> parsed_command = parse_command(buffer, bytes_received);
 
-    char response[] = "+PONG\r\n";
-    ssize_t bytes_sent = send(client_fd, response, strlen(response), 0);
-    if (bytes_sent <= 0) {
-      break;
+    if (parsed_command[0].sVal[0] == "ECHO") {
+      std::string resp = bulk_str(parsed_command[1].sVal[0]);
+      send(client_fd, resp.c_str(), resp.size(), 0);
+    } else {
+      std::string resp = simple_string("PONG");
+      send(client_fd, resp.c_str(), resp.size(), 0);
     }
   }
 
