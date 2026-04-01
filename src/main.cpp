@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <chrono>
 #include <cstring>
 #include <iostream>
 #include <map>
@@ -20,7 +21,13 @@ public:
   token(int i) : type(2), iVal(i) {}
 };
 
-std::map<std::string, std::string> mp;
+std::map<std::string, std::tuple<std::string, int, long long>> mp;
+
+long long now_ms() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
 
 std::string bulk_str(std::string str) {
   std::string resp;
@@ -40,7 +47,7 @@ void ok(int client_fd){
 }
 
 void null(int client_fd){
-  std::string resp = bulk_str("-1");
+  std::string resp = "$-1\r\n";
   send(client_fd, resp.c_str(), resp.size(), 0);
   return;
 }
@@ -97,14 +104,29 @@ void handle_client(int client_fd) {
       std::string resp = simple_string("PONG");
       send(client_fd, resp.c_str(), resp.size(), 0);
     } else if(parsed_command[0].sVal[0] == "SET"){
-      mp[parsed_command[1].sVal[0]] = parsed_command[2].sVal[0];
+      long long expiry = -1;
+      if (parsed_command.size() == 5) {
+        if (parsed_command[3].sVal[0] == "EX") {
+          expiry = now_ms() + std::stoll(parsed_command[4].sVal[0]) * 1000;
+        } else if (parsed_command[3].sVal[0] == "PX") {
+          expiry = now_ms() + std::stoll(parsed_command[4].sVal[0]);
+        }
+      }
+      mp[parsed_command[1].sVal[0]] = {parsed_command[2].sVal[0], 0, expiry};
       ok(client_fd);
     } else if(parsed_command[0].sVal[0] == "GET"){
-      if(mp.find(parsed_command[1].sVal[0]) == mp.end()){
+      auto it = mp.find(parsed_command[1].sVal[0]);
+      if(it == mp.end()){
         null(client_fd);
       } else {
-        std::string resp = bulk_str(mp[parsed_command[1].sVal[0]]);
-        send(client_fd, resp.c_str(), resp.size(), 0);
+        long long expiry = std::get<2>(it->second);
+        if (expiry != -1 && now_ms() >= expiry) {
+          mp.erase(it);
+          null(client_fd);
+        } else {
+          std::string resp = bulk_str(std::get<0>(it->second));
+          send(client_fd, resp.c_str(), resp.size(), 0);
+        }
       }
 
     }
