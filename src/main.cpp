@@ -10,11 +10,19 @@
 void handle_client(int client_fd) {
   while (true) {
     char buffer[1024];
-    recv(client_fd, buffer, sizeof(buffer), 0);
+    ssize_t bytes_received = recv(client_fd, buffer, sizeof(buffer), 0);
+    if (bytes_received <= 0) {
+      break;
+    }
 
     char response[] = "+PONG\r\n";
-    send(client_fd, response, strlen(response), 0);
+    ssize_t bytes_sent = send(client_fd, response, strlen(response), 0);
+    if (bytes_sent <= 0) {
+      break;
+    }
   }
+
+  close(client_fd);
 }
 
 int main(int argc, char **argv) {
