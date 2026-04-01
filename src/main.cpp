@@ -53,7 +53,7 @@ std::string resp_array(std::vector<std::string> v) {
   for (auto e : v) {
     resp += bulk_str(e);
   }
-  std::cout << resp;
+
   return resp;
 }
 
@@ -154,14 +154,37 @@ void handle_client(int client_fd) {
           resp_int((std::get<1>(mp[parsed_command[1].sVal[0]])).size());
       send(client_fd, resp.c_str(), resp.size(), 0);
     } else if (parsed_command[0].sVal[0] == "LRANGE") {
+
+      std::vector<std::string> v = std::get<1>(mp[parsed_command[1].sVal[0]]);
+      int sz = v.size();
       int start_idx = std::stoi(parsed_command[2].sVal[0]);
       int end_idx = std::stoi(parsed_command[3].sVal[0]);
 
-      std::vector<std::string> v = std::get<1>(mp[parsed_command[1].sVal[0]]);
+      if (sz == 0) {
+        std::string resp = resp_array({});
+        send(client_fd, resp.c_str(), resp.size(), 0);
+        continue;
+      }
+
+      if (start_idx < 0)
+        start_idx += sz;
+      if (end_idx < 0)
+        end_idx += sz;
+
+      if (start_idx < 0)
+        start_idx = 0;
+      if (end_idx < 0)
+        end_idx = 0;
+      if (start_idx >= sz)
+        start_idx = sz;
+      if (end_idx >= sz)
+        end_idx = sz - 1;
+
       std::vector<std::string> resp_v;
-      for (int i = start_idx; i < std::min((size_t)(end_idx + 1), v.size());
-           i++) {
-        resp_v.push_back(v[i]);
+      if (start_idx <= end_idx && start_idx < sz) {
+        for (int i = start_idx; i <= end_idx; i++) {
+          resp_v.push_back(v[i]);
+        }
       }
 
       std::string resp = resp_array(resp_v);
