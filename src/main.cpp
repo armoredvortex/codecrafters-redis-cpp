@@ -197,6 +197,10 @@ void handle_client(int client_fd) {
 
       std::string resp = resp_array(resp_v);
       send(client_fd, resp.c_str(), resp.size(), 0);
+    } else if(parsed_command[0].sVal[0] == "LLEN"){
+      std::string resp;
+      resp = resp_int(std::get<1>(mp[parsed_command[1].sVal[0]]).size());
+      send(client_fd, resp.c_str(), resp.size(), 0);
     }
   }
 
