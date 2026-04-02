@@ -1,8 +1,10 @@
 #include "client.hpp"
 #include "commands.hpp"
 #include <arpa/inet.h>
+#include <condition_variable>
 #include <iostream>
 #include <map>
+#include <mutex>
 #include <netdb.h>
 #include <string>
 #include <sys/socket.h>
@@ -11,18 +13,16 @@
 #include <unistd.h>
 #include <vector>
 
+std::mutex store_mutex;
+std::condition_variable store_cv;
+
 std::map<std::string, std::tuple<int, std::vector<std::string>, int, long long>>
     store;
 std::map<std::string, CommandHandler> command_store{
-  {"PING", c_ping},
-  {"ECHO", c_echo},
-  {"SET", c_set},
-  {"GET", c_get},
-  {"RPUSH", c_rpush},
-  {"LPUSH", c_lpush},
-  {"LRANGE", c_lrange},
-  {"LLEN", c_llen},
-  {"LPOP", c_lpop}};
+    {"PING", c_ping},     {"ECHO", c_echo},   {"SET", c_set},
+    {"GET", c_get},       {"RPUSH", c_rpush}, {"LPUSH", c_lpush},
+    {"LRANGE", c_lrange}, {"LLEN", c_llen},   {"LPOP", c_lpop},
+    {"BLPOP", c_blpop}};
 
 int main(int argc, char **argv) {
   // Flush after every std::cout / std::cerr
