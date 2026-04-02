@@ -49,6 +49,12 @@ void null(int client_fd) {
   return;
 }
 
+void null_arr(int client_fd) {
+  std::string resp = "*-1\r\n";
+  send(client_fd, resp.c_str(), resp.size(), 0);
+  return;
+}
+
 int parse_tokens(int i, const std::string &buf, std::vector<token> &ans) {
   char type = buf[i];
   std::string numStr;

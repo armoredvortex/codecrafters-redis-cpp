@@ -28,6 +28,8 @@ void ok(int client_fd);
 
 void null(int client_fd);
 
+void null_arr(int client_fd);
+
 int parse_tokens(int i, const std::string &buf, std::vector<token> &ans);
 
 std::vector<token> parse_command(char buffer[1024], ssize_t bytes_received);

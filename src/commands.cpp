@@ -173,7 +173,7 @@ void c_blpop(int client_fd, const std::vector<token> &args) {
 
   if (!ready) {
     lock.unlock();
-    null(client_fd);
+    null_arr(client_fd);
     return;
   }
 
